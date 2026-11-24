@@ -1,0 +1,6 @@
+{
+  "name": "Yarny 3D Studio",
+  "description": "Процедурна 3D м'яка в'язана фігурка з ниток у стилі Unravel 2 для Three.js з експортом GLB та коду.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
