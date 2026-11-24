@@ -6,6 +6,7 @@ import { YarnCreatureConfig } from '@/lib/three/types';
 import {
   generateStandaloneMotorcycleCode,
   generateStandaloneThreeJsCode,
+  generateStandaloneTreeCode,
 } from '@/lib/three/exportCreature';
 
 interface CodeExportModalProps {
@@ -22,19 +23,25 @@ export default function CodeExportModal({
   onExportGLB,
 }: CodeExportModalProps) {
   const [copied, setCopied] = useState(false);
-  const [fileTab, setFileTab] = useState<'creature' | 'motorcycle'>('creature');
+  const [fileTab, setFileTab] = useState<'creature' | 'motorcycle' | 'tree'>(
+    'creature'
+  );
 
   if (!open) return null;
 
   const code =
     fileTab === 'creature'
       ? generateStandaloneThreeJsCode(config)
-      : generateStandaloneMotorcycleCode(config);
+      : fileTab === 'motorcycle'
+        ? generateStandaloneMotorcycleCode(config)
+        : generateStandaloneTreeCode();
 
   const filename =
     fileTab === 'creature'
       ? 'createYarnCreature.js'
-      : 'createYarnMotorcycle.js';
+      : fileTab === 'motorcycle'
+        ? 'createYarnMotorcycle.js'
+        : 'createYarnTree.js';
 
   const handleCopy = async () => {
     try {
@@ -82,7 +89,7 @@ export default function CodeExportModal({
               Додати моделі у вашу Three.js сцену
             </h2>
             <p className="text-xs text-[#9DA4B0] mt-0.5">
-              JS-код: 2 окремі модулі (персонаж + мотоцикл) • .GLB: 1 спільний файл сцени
+              JS-код: окремі модулі (персонаж, мотоцикл, дерева) • .GLB: спільний файл сцени
             </p>
           </div>
           <button
@@ -118,6 +125,17 @@ export default function CodeExportModal({
               }`}
             >
               createYarnMotorcycle.js
+            </button>
+            <button
+              type="button"
+              onClick={() => setFileTab('tree')}
+              className={`px-2.5 py-1 rounded-md text-xs font-mono transition-colors cursor-pointer ${
+                fileTab === 'tree'
+                  ? 'bg-[#252a35] text-[#F2EFE9]'
+                  : 'text-[#9DA4B0] hover:text-white'
+              }`}
+            >
+              createYarnTree.js
             </button>
           </div>
 

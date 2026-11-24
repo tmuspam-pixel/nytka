@@ -679,3 +679,209 @@ export function createYarnMotorcycle(options = {}) {
 `;
 }
 
+/**
+ * Generates a standalone Three.js ES module for procedural textured Nordic craft trees
+ * (bark + foliage CanvasTextures, multi-part trunk/roots/branches/crown, and wind sway).
+ */
+export function generateStandaloneTreeCode(): string {
+  return `// Окремий файл: createYarnTree.js — Дерева з процедурною текстурою кори та хвої/листя
+// Використання:
+//   import { createYarnTree, createYarnGrove } from './createYarnTree';
+//
+//   // Одне дерево:
+//   const tree = createYarnTree({ variant: 'spruce', scale: 1.1 });
+//   tree.group.position.set(-2, 0, -1.5);
+//   scene.add(tree.group);
+//
+//   // Або одразу кілька дерев зі спільними текстурами:
+//   const grove = createYarnGrove({ groundY: 0 });
+//   scene.add(grove.group);
+//   // В анімації: grove.update(clock.getElapsedTime());
+
+import * as THREE from 'three';
+
+function hash2D(x, y) {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  return s - Math.floor(s);
+}
+
+export function createBarkTextureSet(variant = 'spruce', repeatU = 2, repeatV = 3) {
+  const size = 256;
+  const cCanvas = document.createElement('canvas');
+  const bCanvas = document.createElement('canvas');
+  cCanvas.width = bCanvas.width = size;
+  cCanvas.height = bCanvas.height = size;
+  const cCtx = cCanvas.getContext('2d');
+  const bCtx = bCanvas.getContext('2d');
+
+  const cImg = cCtx.createImageData(size, size);
+  const bImg = bCtx.createImageData(size, size);
+
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const idx = (y * size + x) * 4;
+
+      if (variant === 'birch') {
+        const grain = 0.5 + 0.5 * Math.sin((u * 14 + Math.sin(v * 12) * 0.2) * Math.PI * 2);
+        const dash = hash2D(Math.floor(u * 9), Math.floor(v * 30)) > 0.75
+          ? Math.max(0, 1 - Math.abs(((v * 30) % 1) - 0.5) * 3.4)
+          : 0;
+        const h = Math.max(0, Math.min(1, 0.74 + grain * 0.16 - dash * 0.5));
+        const shade = 0.72 + h * 0.28;
+        cImg.data[idx] = Math.round(205 * shade * (1 - dash * 0.78) + 42 * dash * 0.78);
+        cImg.data[idx + 1] = Math.round(195 * shade * (1 - dash * 0.78) + 38 * dash * 0.78);
+        cImg.data[idx + 2] = Math.round(176 * shade * (1 - dash * 0.78) + 34 * dash * 0.78);
+        cImg.data[idx + 3] = 255;
+        const bv = Math.round(h * 255);
+        bImg.data[idx] = bImg.data[idx + 1] = bImg.data[idx + 2] = bv;
+        bImg.data[idx + 3] = 255;
+      } else {
+        const ridge = 0.5 + 0.5 * Math.sin((u * 11 + Math.sin(v * Math.PI * 2) * 0.45) * Math.PI * 2);
+        const fiber = 0.5 + 0.5 * Math.sin(u * 64 * Math.PI * 2 + hash2D(x, Math.floor(y / 2)));
+        const h = Math.max(0, Math.min(1, ridge * 0.68 + fiber * 0.32));
+        const shade = 0.42 + h * 0.68;
+        cImg.data[idx] = Math.min(255, Math.round(98 * shade));
+        cImg.data[idx + 1] = Math.min(255, Math.round(69 * shade));
+        cImg.data[idx + 2] = Math.min(255, Math.round(49 * shade));
+        cImg.data[idx + 3] = 255;
+        const bv = Math.round(h * 255);
+        bImg.data[idx] = bImg.data[idx + 1] = bImg.data[idx + 2] = bv;
+        bImg.data[idx + 3] = 255;
+      }
+    }
+  }
+  cCtx.putImageData(cImg, 0, 0);
+  bCtx.putImageData(bImg, 0, 0);
+
+  const map = new THREE.CanvasTexture(cCanvas);
+  map.wrapS = map.wrapT = THREE.RepeatWrapping;
+  map.repeat.set(repeatU, repeatV);
+  map.colorSpace = THREE.SRGBColorSpace;
+
+  const bumpMap = new THREE.CanvasTexture(bCanvas);
+  bumpMap.wrapS = bumpMap.wrapT = THREE.RepeatWrapping;
+  bumpMap.repeat.set(repeatU, repeatV);
+
+  return { map, bumpMap };
+}
+
+export function createYarnTree(options = {}) {
+  const variant = options.variant ?? 'spruce';
+  const scale = options.scale ?? 1.0;
+  const seed = options.seed ?? 1.0;
+  const barkVariant = options.barkVariant ?? (variant === 'birch' ? 'birch' : 'spruce');
+
+  const group = new THREE.Group();
+  group.name = 'YarnTree_' + variant;
+  group.scale.setScalar(scale);
+
+  const swayGroup = new THREE.Group();
+  group.add(swayGroup);
+
+  const barkTex = options.barkTex ?? createBarkTextureSet(barkVariant);
+  const barkMat = options.barkMat ?? new THREE.MeshStandardMaterial({
+    map: barkTex.map,
+    bumpMap: barkTex.bumpMap,
+    bumpScale: barkVariant === 'birch' ? 0.028 : 0.05,
+    roughness: 0.94,
+  });
+
+  const foliageMat = options.foliageMat ?? new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(variant === 'birch' ? '#4c7844' : '#294f37'),
+    roughness: 0.88,
+    sheen: 0.85,
+    sheenColor: new THREE.Color('#8ac7a3'),
+  });
+
+  const trunkH = variant === 'pine' ? 1.55 : variant === 'birch' ? 1.38 : 1.42;
+  const trunkCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0.02, trunkH * 0.4, 0.01),
+    new THREE.Vector3(0.03, trunkH, 0.02),
+  ]);
+  const trunk = new THREE.Mesh(new THREE.TubeGeometry(trunkCurve, 18, 0.068, 12, false), barkMat);
+  trunk.castShadow = trunk.receiveShadow = true;
+  swayGroup.add(trunk);
+
+  // Коріння біля основи (y = 0)
+  for (let r = 0; r < 4; r++) {
+    const a = (r / 4) * Math.PI * 2 + seed * 0.3;
+    const rootCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(Math.cos(a) * 0.04, 0.1, Math.sin(a) * 0.04),
+      new THREE.Vector3(Math.cos(a) * 0.17, 0.01, Math.sin(a) * 0.17),
+    ]);
+    const root = new THREE.Mesh(new THREE.TubeGeometry(rootCurve, 8, 0.026, 7, false), barkMat);
+    root.castShadow = true;
+    group.add(root);
+  }
+
+  if (variant === 'birch') {
+    [
+      [0, 1.24, 0, 0.31],
+      [0.2, 1.08, 0.08, 0.23],
+      [-0.2, 1.12, 0.12, 0.22],
+      [0.04, 1.04, -0.2, 0.23],
+    ].forEach(([x, y, z, rad]) => {
+      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(rad, 2), foliageMat);
+      puff.scale.set(1.1, 0.85, 1.05);
+      puff.position.set(x, y, z);
+      puff.castShadow = puff.receiveShadow = true;
+      swayGroup.add(puff);
+    });
+  } else {
+    for (let t = 0; t < 4; t++) {
+      const f = t / 3;
+      const tier = new THREE.Mesh(
+        new THREE.ConeGeometry(0.45 * (1 - f * 0.55), 0.42 * (1 - f * 0.32), 18),
+        foliageMat
+      );
+      tier.position.set(0.02, 0.62 + t * 0.25, 0.01);
+      tier.castShadow = tier.receiveShadow = true;
+      swayGroup.add(tier);
+    }
+  }
+
+  return {
+    group,
+    update(elapsedTime) {
+      swayGroup.rotation.z = Math.sin(elapsedTime * 0.9 + seed) * 0.018;
+    },
+  };
+}
+
+export function createYarnGrove(options = {}) {
+  const groundY = options.groundY ?? 0;
+  const group = new THREE.Group();
+  const spruceTex = createBarkTextureSet('spruce');
+  const birchTex = createBarkTextureSet('birch');
+  const trees = [
+    { x: -2.0, z: -1.5, scale: 1.08, variant: 'spruce', seed: 1.2 },
+    { x: -2.3, z: 0.45, scale: 0.96, variant: 'birch', seed: 2.7 },
+    { x: 1.45, z: -2.1, scale: 1.16, variant: 'pine', seed: 3.9 },
+    { x: -0.3, z: -2.7, scale: 1.24, variant: 'spruce', seed: 5.1 },
+    { x: 2.3, z: -1.1, scale: 0.92, variant: 'birch', seed: 6.4 },
+  ].map((p) => {
+    const t = createYarnTree({
+      variant: p.variant,
+      scale: p.scale,
+      seed: p.seed,
+      barkTex: p.variant === 'birch' ? birchTex : spruceTex,
+    });
+    t.group.position.set(p.x, groundY, p.z);
+    group.add(t.group);
+    return t;
+  });
+
+  return {
+    group,
+    trees,
+    update(elapsedTime) {
+      trees.forEach((t) => t.update(elapsedTime));
+    },
+  };
+}
+`;
+}
+

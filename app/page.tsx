@@ -28,6 +28,7 @@ export default function HomePage() {
   const [exploded, setExploded] = useState<number>(0);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
   const [hasMotorcycle, setHasMotorcycle] = useState<boolean>(false);
+  const [showTrees, setShowTrees] = useState<boolean>(true);
   const [bikeSteer, setBikeSteer] = useState<number>(0);
   const [bikeSpeed, setBikeSpeed] = useState<number>(1.8);
   const [rideSeatY, setRideSeatY] = useState<number>(0);
@@ -127,6 +128,7 @@ export default function HomePage() {
           exploded={exploded}
           autoRotate={autoRotate}
           hasMotorcycle={hasMotorcycle}
+          showTrees={showTrees}
           bikeSteer={bikeSteer}
           bikeSpeed={bikeSpeed}
           rideSeatY={rideSeatY}
@@ -170,6 +172,8 @@ export default function HomePage() {
         onAutoRotateChange={setAutoRotate}
         hasMotorcycle={hasMotorcycle}
         onToggleMotorcycle={handleToggleMotorcycle}
+        showTrees={showTrees}
+        onToggleTrees={() => setShowTrees((prev) => !prev)}
         bikeSteer={bikeSteer}
         onBikeSteerChange={setBikeSteer}
         bikeSpeed={bikeSpeed}

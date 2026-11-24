@@ -12,6 +12,7 @@ import {
   Palette,
   Play,
   RotateCw,
+  Trees,
   Users,
 } from 'lucide-react';
 import {
@@ -37,6 +38,8 @@ interface ControlDockProps {
   onAutoRotateChange: (val: boolean) => void;
   hasMotorcycle: boolean;
   onToggleMotorcycle: () => void;
+  showTrees: boolean;
+  onToggleTrees: () => void;
   bikeSteer: number;
   onBikeSteerChange: (val: number) => void;
   bikeSpeed: number;
@@ -84,6 +87,8 @@ export default function ControlDock({
   onAutoRotateChange,
   hasMotorcycle,
   onToggleMotorcycle,
+  showTrees,
+  onToggleTrees,
   bikeSteer,
   onBikeSteerChange,
   bikeSpeed,
@@ -193,6 +198,18 @@ export default function ControlDock({
           </div>
 
           <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onToggleTrees}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                showTrees
+                  ? 'bg-[#2e5942]/30 border-[#4d8c66]/60 text-[#bfead0]'
+                  : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
+              }`}
+            >
+              <Trees className="w-3.5 h-3.5" />
+              Дерева
+            </button>
             <button
               type="button"
               onClick={onToggleMotorcycle}
@@ -681,10 +698,14 @@ export default function ControlDock({
                 Окремі модулі{' '}
                 <span className="font-mono text-[#F2EFE9]">
                   createYarnCreature.js
+                </span>
+                ,{' '}
+                <span className="font-mono text-[#F2EFE9]">
+                  createYarnMotorcycle.js
                 </span>{' '}
                 та{' '}
                 <span className="font-mono text-[#F2EFE9]">
-                  createYarnMotorcycle.js
+                  createYarnTree.js
                 </span>{' '}
                 або спільний <span className="font-mono text-[#F2EFE9]">.GLB</span>.
                 {exportMessage && (

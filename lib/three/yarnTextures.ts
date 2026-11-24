@@ -369,3 +369,321 @@ export function createStudioFloorTextures(maxAnisotropy = 4): StudioFloorTexture
     },
   };
 }
+
+export interface TreeTextureSet {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+  dispose: () => void;
+}
+
+/**
+ * Generates seamless 512x512 procedural tree bark textures (spruce/oak or silver birch)
+ * with vertical fibrous grain, deep bark furrows, knots, and lichen/lenticel detail.
+ */
+export function createTreeBarkTextureSet(
+  variant: 'spruce' | 'birch' = 'spruce',
+  repeatU = 2,
+  repeatV = 3,
+  maxAnisotropy = 4
+): TreeTextureSet {
+  const size = 512;
+
+  const colorCanvas = document.createElement('canvas');
+  colorCanvas.width = size;
+  colorCanvas.height = size;
+  const colorCtx = colorCanvas.getContext('2d')!;
+
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = size;
+  bumpCanvas.height = size;
+  const bumpCtx = bumpCanvas.getContext('2d')!;
+
+  const roughCanvas = document.createElement('canvas');
+  roughCanvas.width = size;
+  roughCanvas.height = size;
+  const roughCtx = roughCanvas.getContext('2d')!;
+
+  const colorImg = colorCtx.createImageData(size, size);
+  const bumpImg = bumpCtx.createImageData(size, size);
+  const roughImg = roughCtx.createImageData(size, size);
+
+  const knotU = 0.35;
+  const knotV = 0.42;
+  const knotU2 = 0.78;
+  const knotV2 = 0.74;
+
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const idx = (y * size + x) * 4;
+
+      // Wrap-aware distance to two organic bark knots
+      const du1 = Math.min(Math.abs(u - knotU), 1 - Math.abs(u - knotU));
+      const dv1 = Math.min(Math.abs(v - knotV), 1 - Math.abs(v - knotV));
+      const d1 = Math.hypot(du1 * 1.4, dv1 * 0.8);
+
+      const du2 = Math.min(Math.abs(u - knotU2), 1 - Math.abs(u - knotU2));
+      const dv2 = Math.min(Math.abs(v - knotV2), 1 - Math.abs(v - knotV2));
+      const d2 = Math.hypot(du2 * 1.4, dv2 * 0.8);
+
+      const knotWarp =
+        Math.exp(-d1 * d1 * 65) * 0.14 * Math.sign(u - knotU) +
+        Math.exp(-d2 * d2 * 75) * 0.11 * Math.sign(u - knotU2);
+
+      const warpedU = u + knotWarp;
+
+      if (variant === 'birch') {
+        // Silver birch: pale papery bark with horizontal dark lenticels & fine grain
+        const verticalGrain =
+          0.5 +
+          0.5 *
+            Math.sin(
+              (warpedU * 14 + Math.sin(v * Math.PI * 4) * 0.25) * Math.PI * 2
+            );
+        const paperyBand =
+          0.5 + 0.5 * Math.sin((v * 18 + Math.sin(warpedU * Math.PI * 6) * 0.35) * Math.PI * 2);
+        const micro = (hash2D(Math.floor(x / 2), y) - 0.5) * 0.12;
+
+        // Horizontal dark bark dashes (lenticels)
+        const dashNoise = hash2D(Math.floor(u * 9), Math.floor(v * 34));
+        const dashMask =
+          dashNoise > 0.74
+            ? Math.max(0, 1 - Math.abs(((v * 34) % 1) - 0.5) * 3.4) *
+              Math.sin(((u * 9) % 1) * Math.PI)
+            : 0;
+
+        const knotDark = Math.exp(-d1 * d1 * 140) * 0.65 + Math.exp(-d2 * d2 * 150) * 0.55;
+        const height = Math.max(
+          0,
+          Math.min(1, 0.72 + verticalGrain * 0.12 + paperyBand * 0.1 + micro - dashMask * 0.45 - knotDark * 0.35)
+        );
+
+        const baseShade = 0.72 + height * 0.28;
+        const darkMix = Math.min(1, dashMask * 0.82 + knotDark * 0.75);
+
+        const r = 206 * baseShade * (1 - darkMix) + 46 * darkMix;
+        const g = 196 * baseShade * (1 - darkMix) + 41 * darkMix;
+        const b = 178 * baseShade * (1 - darkMix) + 37 * darkMix;
+
+        colorImg.data[idx] = clampByte(r);
+        colorImg.data[idx + 1] = clampByte(g);
+        colorImg.data[idx + 2] = clampByte(b);
+        colorImg.data[idx + 3] = 255;
+
+        const bumpByte = clampByte(height * 255);
+        bumpImg.data[idx] = bumpByte;
+        bumpImg.data[idx + 1] = bumpByte;
+        bumpImg.data[idx + 2] = bumpByte;
+        bumpImg.data[idx + 3] = 255;
+
+        const roughByte = clampByte(218 + darkMix * 28 - height * 20);
+        roughImg.data[idx] = roughByte;
+        roughImg.data[idx + 1] = roughByte;
+        roughImg.data[idx + 2] = roughByte;
+        roughImg.data[idx + 3] = 255;
+      } else {
+        // Warm Nordic spruce / oak bark with deep vertical ridges & lichen hints
+        const ridgePrimary =
+          0.5 +
+          0.5 *
+            Math.sin(
+              (warpedU * 11 + Math.sin(v * Math.PI * 2) * 0.45 + Math.sin(v * Math.PI * 6) * 0.14) *
+                Math.PI *
+                2
+            );
+        const ridgeSecondary =
+          0.5 +
+          0.5 *
+            Math.sin((warpedU * 27 + Math.cos(v * Math.PI * 4) * 0.3) * Math.PI * 2);
+        const barkPlateBreak =
+          0.5 + 0.5 * Math.sin((v * 13 + warpedU * 3) * Math.PI * 2);
+        const fiberGrain =
+          0.5 + 0.5 * Math.sin(warpedU * 76 * Math.PI * 2 + hash2D(x, Math.floor(y / 3)) * 1.4);
+        const micro = (hash2D(x, y) - 0.5) * 0.1;
+
+        const height = Math.max(
+          0,
+          Math.min(
+            1,
+            ridgePrimary * 0.5 +
+              ridgeSecondary * 0.24 +
+              barkPlateBreak * 0.14 +
+              fiberGrain * 0.12 +
+              micro
+          )
+        );
+
+        // Subtle moss/lichen speck in deep crevices
+        const mossSpot =
+          height < 0.36 && hash2D(Math.floor(x / 6), Math.floor(y / 6)) > 0.72
+            ? 0.24
+            : 0;
+
+        const shade = 0.42 + height * 0.68;
+        const r = 98 * shade * (1 - mossSpot) + 74 * mossSpot;
+        const g = 69 * shade * (1 - mossSpot) + 92 * mossSpot;
+        const b = 49 * shade * (1 - mossSpot) + 56 * mossSpot;
+
+        colorImg.data[idx] = clampByte(r);
+        colorImg.data[idx + 1] = clampByte(g);
+        colorImg.data[idx + 2] = clampByte(b);
+        colorImg.data[idx + 3] = 255;
+
+        const bumpByte = clampByte(height * 255);
+        bumpImg.data[idx] = bumpByte;
+        bumpImg.data[idx + 1] = bumpByte;
+        bumpImg.data[idx + 2] = bumpByte;
+        bumpImg.data[idx + 3] = 255;
+
+        // Crevices very rough (248), bark crests slightly burnished (202)
+        const roughByte = clampByte(248 - height * 46);
+        roughImg.data[idx] = roughByte;
+        roughImg.data[idx + 1] = roughByte;
+        roughImg.data[idx + 2] = roughByte;
+        roughImg.data[idx + 3] = 255;
+      }
+    }
+  }
+
+  colorCtx.putImageData(colorImg, 0, 0);
+  bumpCtx.putImageData(bumpImg, 0, 0);
+  roughCtx.putImageData(roughImg, 0, 0);
+
+  const configureTex = (canvas: HTMLCanvasElement, isColor: boolean) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatU, repeatV);
+    tex.anisotropy = maxAnisotropy;
+    if (isColor) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+    }
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const map = configureTex(colorCanvas, true);
+  const bumpMap = configureTex(bumpCanvas, false);
+  const roughnessMap = configureTex(roughCanvas, false);
+
+  return {
+    map,
+    bumpMap,
+    roughnessMap,
+    dispose: () => {
+      map.dispose();
+      bumpMap.dispose();
+      roughnessMap.dispose();
+    },
+  };
+}
+
+/**
+ * Generates seamless 512x512 felted/knitted woodland foliage texture (pine needles & soft moss wool)
+ * so trees share the handmade Unravel 2 diorama look.
+ */
+export function createTreeFoliageTextureSet(
+  baseHex = '#2e593e',
+  repeatU = 4,
+  repeatV = 3,
+  maxAnisotropy = 4
+): TreeTextureSet {
+  const size = 512;
+  const { r: baseR, g: baseG, b: baseB } = hexToRgb(baseHex);
+
+  const colorCanvas = document.createElement('canvas');
+  colorCanvas.width = size;
+  colorCanvas.height = size;
+  const colorCtx = colorCanvas.getContext('2d')!;
+
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = size;
+  bumpCanvas.height = size;
+  const bumpCtx = bumpCanvas.getContext('2d')!;
+
+  const roughCanvas = document.createElement('canvas');
+  roughCanvas.width = size;
+  roughCanvas.height = size;
+  const roughCtx = roughCanvas.getContext('2d')!;
+
+  const colorImg = colorCtx.createImageData(size, size);
+  const bumpImg = bumpCtx.createImageData(size, size);
+  const roughImg = roughCtx.createImageData(size, size);
+
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const idx = (y * size + x) * 4;
+
+      // Diagonal wool-knit V-loops blended with layered pine-needle clusters
+      const cols = 10;
+      const rows = 10;
+      const cellU = (u * cols) % 1;
+      const cellV = (v * rows) % 1;
+      const symU = Math.abs(cellU - 0.5) * 2;
+      const knit = (0.5 + 0.5 * Math.sin((cellV + symU * 0.45) * Math.PI * 2)) * 0.55;
+
+      const tuft =
+        0.5 +
+        0.5 *
+          Math.sin((u * 18 + v * 12) * Math.PI * 2 + Math.cos(u * 9 * Math.PI * 2) * 0.9);
+      const micro = (hash2D(x * 0.8, y * 0.8) - 0.5) * 0.16;
+
+      const height = Math.max(0, Math.min(1, knit + tuft * 0.35 + micro));
+      const shade = 0.58 + height * 0.52;
+      const tipLift = Math.max(0, height - 0.72) * 26;
+
+      colorImg.data[idx] = clampByte(baseR * shade + tipLift * 0.75);
+      colorImg.data[idx + 1] = clampByte(baseG * shade + tipLift);
+      colorImg.data[idx + 2] = clampByte(baseB * shade + tipLift * 0.65);
+      colorImg.data[idx + 3] = 255;
+
+      const bumpByte = clampByte(height * 255);
+      bumpImg.data[idx] = bumpByte;
+      bumpImg.data[idx + 1] = bumpByte;
+      bumpImg.data[idx + 2] = bumpByte;
+      bumpImg.data[idx + 3] = 255;
+
+      const roughByte = clampByte(244 - height * 36);
+      roughImg.data[idx] = roughByte;
+      roughImg.data[idx + 1] = roughByte;
+      roughImg.data[idx + 2] = roughByte;
+      roughImg.data[idx + 3] = 255;
+    }
+  }
+
+  colorCtx.putImageData(colorImg, 0, 0);
+  bumpCtx.putImageData(bumpImg, 0, 0);
+  roughCtx.putImageData(roughImg, 0, 0);
+
+  const configureTex = (canvas: HTMLCanvasElement, isColor: boolean) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatU, repeatV);
+    tex.anisotropy = maxAnisotropy;
+    if (isColor) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+    }
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const map = configureTex(colorCanvas, true);
+  const bumpMap = configureTex(bumpCanvas, false);
+  const roughnessMap = configureTex(roughCanvas, false);
+
+  return {
+    map,
+    bumpMap,
+    roughnessMap,
+    dispose: () => {
+      map.dispose();
+      bumpMap.dispose();
+      roughnessMap.dispose();
+    },
+  };
+}

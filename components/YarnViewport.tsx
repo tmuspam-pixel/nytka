@@ -9,6 +9,7 @@ import {
   buildYarnMotorcycle,
   YarnMotorcycleInstance,
 } from '@/lib/three/yarnMotorcycle';
+import { buildYarnForest, YarnForestInstance } from '@/lib/three/yarnTree';
 import { createStudioFloorTextures } from '@/lib/three/yarnTextures';
 import { exportCreatureToGLB } from '@/lib/three/exportCreature';
 import {
@@ -23,6 +24,7 @@ interface YarnViewportProps {
   exploded: number;
   autoRotate: boolean;
   hasMotorcycle: boolean;
+  showTrees: boolean;
   bikeSteer: number;
   bikeSpeed: number;
   rideSeatY: number;
@@ -72,6 +74,7 @@ export default function YarnViewport({
   exploded,
   autoRotate,
   hasMotorcycle,
+  showTrees,
   bikeSteer,
   bikeSpeed,
   rideSeatY,
@@ -92,6 +95,7 @@ export default function YarnViewport({
   const explodedRef = useRef<number>(exploded);
   const autoRotateRef = useRef<boolean>(autoRotate);
   const hasMotorcycleRef = useRef<boolean>(hasMotorcycle);
+  const showTreesRef = useRef<boolean>(showTrees);
   const bikeSteerRef = useRef<number>(bikeSteer);
   const bikeSpeedRef = useRef<number>(bikeSpeed);
   const rideSeatYRef = useRef<number>(rideSeatY);
@@ -103,6 +107,7 @@ export default function YarnViewport({
 
   const creatureRef = useRef<YarnCreatureInstance | null>(null);
   const bikeRef = useRef<YarnMotorcycleInstance | null>(null);
+  const forestRef = useRef<YarnForestInstance | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -137,6 +142,10 @@ export default function YarnViewport({
   useEffect(() => {
     hasMotorcycleRef.current = hasMotorcycle;
   }, [hasMotorcycle]);
+
+  useEffect(() => {
+    showTreesRef.current = showTrees;
+  }, [showTrees]);
 
   useEffect(() => {
     bikeSteerRef.current = bikeSteer;
@@ -180,9 +189,13 @@ export default function YarnViewport({
       bikeRef.current && (hasMotorcycleRef.current || poseRef.current === 'ride')
         ? bikeRef.current.getStats()
         : { triangles: 0, parts: 0 };
+    const fStats =
+      forestRef.current && showTreesRef.current
+        ? forestRef.current.getStats()
+        : { triangles: 0, parts: 0 };
     onStatsChangeRef.current?.({
-      triangles: cStats.triangles + bStats.triangles,
-      parts: cStats.parts + bStats.parts,
+      triangles: cStats.triangles + bStats.triangles + fStats.triangles,
+      parts: cStats.parts + bStats.parts + fStats.parts,
       fibers: cStats.fibers,
     });
   };
@@ -214,35 +227,51 @@ export default function YarnViewport({
     const bikeActive =
       (hasMotorcycleRef.current || poseRef.current === 'ride') &&
       bikeRef.current;
+    const treesActive = showTreesRef.current && forestRef.current;
 
-    let targetToExport: THREE.Object3D = creature.exportRoot;
-    let tempWrapper: THREE.Group | null = null;
+    const targetToExport: THREE.Object3D = creature.exportRoot;
 
-    if (bikeActive && bikeRef.current) {
-      tempWrapper = new THREE.Group();
-      tempWrapper.name = 'YarnyAndMotorcycleExport';
+    if ((bikeActive && bikeRef.current) || (treesActive && forestRef.current)) {
+      const tempWrapper = new THREE.Group();
+      tempWrapper.name = 'YarnySceneExport';
       const cClone = creature.exportRoot;
-      const bClone = bikeRef.current.exportRoot;
       const cParent = cClone.parent;
-      const bParent = bClone.parent;
-
-      // Preserve current scene placement & lean (riding or parked side-by-side) in the 1 combined .GLB
       cClone.position.copy(creature.group.position);
       cClone.rotation.copy(creature.group.rotation);
-      bClone.position.copy(bikeRef.current.group.position);
-      bClone.rotation.copy(bikeRef.current.group.rotation);
+      tempWrapper.add(cClone);
+
+      const bClone = bikeActive && bikeRef.current ? bikeRef.current.exportRoot : null;
+      const bParent = bClone ? bClone.parent : null;
+      if (bClone && bikeRef.current) {
+        bClone.position.copy(bikeRef.current.group.position);
+        bClone.rotation.copy(bikeRef.current.group.rotation);
+        tempWrapper.add(bClone);
+      }
+
+      const fClone = treesActive && forestRef.current ? forestRef.current.group : null;
+      const fParent = fClone ? fClone.parent : null;
+      if (fClone) {
+        tempWrapper.add(fClone);
+      }
 
       const restoreRoots = () => {
         cClone.position.set(0, 0, 0);
         cClone.rotation.set(0, 0, 0);
-        bClone.position.set(0, 0, 0);
-        bClone.rotation.set(0, 0, 0);
         if (cParent) cParent.add(cClone);
-        if (bParent) bParent.add(bClone);
+        if (bClone) {
+          bClone.position.set(0, 0, 0);
+          bClone.rotation.set(0, 0, 0);
+          if (bParent) bParent.add(bClone);
+        }
+        if (fClone && fParent) {
+          fParent.add(fClone);
+        }
       };
 
-      tempWrapper.add(cClone, bClone);
-      exportCreatureToGLB(tempWrapper, 'yarny-motorcycle-scene.glb')
+      const filename = bikeActive
+        ? 'yarny-motorcycle-scene.glb'
+        : 'yarny-woodland-scene.glb';
+      exportCreatureToGLB(tempWrapper, filename)
         .then(() => {
           restoreRoots();
           onExportComplete?.(true);
@@ -352,7 +381,7 @@ export default function YarnViewport({
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 2048;
     keyLight.shadow.mapSize.height = 2048;
-    const d = 2.4;
+    const d = 3.6;
     keyLight.shadow.camera.left = -d;
     keyLight.shadow.camera.right = d;
     keyLight.shadow.camera.top = d;
@@ -468,6 +497,14 @@ export default function YarnViewport({
     initialBike.group.visible = hasMotorcycleRef.current || poseRef.current === 'ride';
     scene.add(initialBike.group);
     bikeRef.current = initialBike;
+
+    const initialForest = buildYarnForest({
+      groundY: -0.141,
+      maxAnisotropy: maxAnisotropyRef.current,
+    });
+    initialForest.group.visible = showTreesRef.current;
+    scene.add(initialForest.group);
+    forestRef.current = initialForest;
 
     reportCombinedStats();
 
@@ -684,6 +721,13 @@ export default function YarnViewport({
       climbWallGroup.visible = climbWallScale > 0.02;
       climbWallGroup.scale.set(1, climbWallScale, 1);
 
+      if (forestRef.current) {
+        forestRef.current.group.visible = showTreesRef.current;
+        if (showTreesRef.current) {
+          forestRef.current.update(elapsed);
+        }
+      }
+
       const trans = camTransitionRef.current;
       if (trans.active) {
         const damp = 1 - Math.exp(-7 * dt);
@@ -726,6 +770,7 @@ export default function YarnViewport({
       controls.dispose();
       creatureRef.current?.dispose();
       bikeRef.current?.dispose();
+      forestRef.current?.dispose();
       plinthGeo.dispose();
       plinthMat.dispose();
       studioGroundGeo.dispose();
@@ -790,10 +835,10 @@ export default function YarnViewport({
     reportCombinedStats();
   }, [config]);
 
-  // Update stats when motorcycle visibility toggles
+  // Update stats when motorcycle or woodland trees visibility toggles
   useEffect(() => {
     reportCombinedStats();
-  }, [hasMotorcycle, pose]);
+  }, [hasMotorcycle, pose, showTrees]);
 
   return (
     <div className="relative w-full h-full">
