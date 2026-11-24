@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronUp,
   Code2,
+  Construction,
   Download,
   Layers,
   Palette,
@@ -18,8 +19,17 @@ import {
 import {
   BIKE_PRESETS,
   CameraPresetId,
+  FOLIAGE_PRESETS,
   HELD_ITEMS,
+  OBSTACLE_TYPES,
+  ObstacleType,
   SEAT_PRESETS,
+  STAGE_ELEMENTS,
+  StageElementId,
+  TRACK_SURFACES,
+  TrackSurfaceId,
+  TREE_VARIANTS,
+  TreeVariantId,
   YARN_PRESETS,
   YarnCreatureConfig,
   YarnPose,
@@ -36,10 +46,28 @@ interface ControlDockProps {
   onExplodedChange: (val: number) => void;
   autoRotate: boolean;
   onAutoRotateChange: (val: boolean) => void;
+  focusElement: StageElementId;
+  onFocusElementChange: (el: StageElementId) => void;
+  trackSurface: TrackSurfaceId;
+  onTrackSurfaceChange: (surface: TrackSurfaceId) => void;
   hasMotorcycle: boolean;
   onToggleMotorcycle: () => void;
   showTrees: boolean;
   onToggleTrees: () => void;
+  showObstacles: boolean;
+  onToggleObstacles: () => void;
+  centerTreeVariant: TreeVariantId;
+  onCenterTreeVariantChange: (v: TreeVariantId) => void;
+  centerTreeBark: 'spruce' | 'birch';
+  onCenterTreeBarkChange: (bark: 'spruce' | 'birch') => void;
+  centerTreeFoliage: { color: string; sheen: string };
+  onCenterTreeFoliageChange: (foliage: { color: string; sheen: string }) => void;
+  centerTreeScale: number;
+  onCenterTreeScaleChange: (scale: number) => void;
+  centerObstacleType: ObstacleType;
+  onCenterObstacleTypeChange: (type: ObstacleType) => void;
+  centerObstacleScale: number;
+  onCenterObstacleScaleChange: (scale: number) => void;
   bikeSteer: number;
   onBikeSteerChange: (val: number) => void;
   bikeSpeed: number;
@@ -85,10 +113,28 @@ export default function ControlDock({
   onExplodedChange,
   autoRotate,
   onAutoRotateChange,
+  focusElement,
+  onFocusElementChange,
+  trackSurface,
+  onTrackSurfaceChange,
   hasMotorcycle,
   onToggleMotorcycle,
   showTrees,
   onToggleTrees,
+  showObstacles,
+  onToggleObstacles,
+  centerTreeVariant,
+  onCenterTreeVariantChange,
+  centerTreeBark,
+  onCenterTreeBarkChange,
+  centerTreeFoliage,
+  onCenterTreeFoliageChange,
+  centerTreeScale,
+  onCenterTreeScaleChange,
+  centerObstacleType,
+  onCenterObstacleTypeChange,
+  centerObstacleScale,
+  onCenterObstacleScaleChange,
   bikeSteer,
   onBikeSteerChange,
   bikeSpeed,
@@ -124,10 +170,117 @@ export default function ControlDock({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const isCreatureOrScene =
+    focusElement === 'scene' || focusElement === 'creature';
+
+  const renderTrackSurfaceButtons = () => (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-xs font-medium text-[#9DA4B0] whitespace-nowrap">
+        Покриття
+      </span>
+      <div className="flex items-center gap-1 bg-[#0f1116] p-0.5 rounded-lg">
+        {TRACK_SURFACES.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onTrackSurfaceChange(s.id)}
+            className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              trackSurface === s.id
+                ? 'bg-[#252a35] text-[#F2EFE9]'
+                : 'text-[#9DA4B0] hover:text-white'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderBikeColorControls = () => (
+    <div className="flex flex-wrap items-center gap-4">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-[#9DA4B0] whitespace-nowrap">Байк</span>
+        <div className="flex items-center gap-1.5">
+          {BIKE_PRESETS.map((preset) => {
+            const active =
+              config.bikeColor.toLowerCase() === preset.color.toLowerCase();
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                title={preset.label}
+                onClick={() =>
+                  onConfigChange({
+                    ...config,
+                    bikeColor: preset.color,
+                    bikeSheenColor: preset.sheenColor,
+                  })
+                }
+                className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
+                  active
+                    ? 'border-white scale-110'
+                    : 'border-white/20 hover:scale-105'
+                }`}
+                style={{ backgroundColor: preset.color }}
+              />
+            );
+          })}
+          <label
+            title="Власний колір байка"
+            className="inline-flex items-center px-1 py-0.5 rounded bg-white/5 border border-white/10 cursor-pointer"
+          >
+            <input
+              type="color"
+              value={config.bikeColor}
+              onChange={(e) =>
+                onConfigChange({
+                  ...config,
+                  bikeColor: e.target.value,
+                  bikeSheenColor: '#e6edf2',
+                })
+              }
+              className="w-4 h-4 rounded border-0 bg-transparent p-0 cursor-pointer"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-[#9DA4B0] whitespace-nowrap">Сідло</span>
+        <div className="flex items-center gap-1.5">
+          {SEAT_PRESETS.map((preset) => {
+            const active =
+              config.seatColor.toLowerCase() === preset.color.toLowerCase();
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                title={preset.label}
+                onClick={() =>
+                  onConfigChange({
+                    ...config,
+                    seatColor: preset.color,
+                  })
+                }
+                className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
+                  active
+                    ? 'border-white scale-110'
+                    : 'border-white/20 hover:scale-105'
+                }`}
+                style={{ backgroundColor: preset.color }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none"
-      style={{ width: 'min(940px, 95vw)' }}
+      style={{ width: 'min(980px, 95vw)' }}
     >
       {/* Collapse / Expand toggle tab */}
       <button
@@ -153,89 +306,106 @@ export default function ControlDock({
         className={`pointer-events-auto w-full rounded-xl bg-[#161920]/95 border border-white/10 shadow-2xl transition-all duration-200 ease-out overflow-hidden ${
           collapsed
             ? 'opacity-0 translate-y-6 pointer-events-none max-h-0 border-transparent'
-            : 'opacity-100 translate-y-0 max-h-[420px]'
+            : 'opacity-100 translate-y-0 max-h-[460px]'
         }`}
       >
-        {/* Top segmented navigation + quick actions */}
+        {/* Row 1: Stage Center Element Switcher + Quick Scene Toggles */}
         <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 border-b border-white/10">
-          <div className="flex items-center gap-1 bg-[#0f1116] p-1 rounded-lg">
-            <button
-              type="button"
-              onClick={() => setActiveTab('yarn')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'yarn'
-                  ? 'bg-[#252a35] text-[#F2EFE9]'
-                  : 'text-[#9DA4B0] hover:text-white'
-              }`}
-            >
-              <Palette className="w-3.5 h-3.5" />
-              Пряжа та форма
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('motion')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'motion'
-                  ? 'bg-[#252a35] text-[#F2EFE9]'
-                  : 'text-[#9DA4B0] hover:text-white'
-              }`}
-            >
-              <Play className="w-3.5 h-3.5" />
-              Поза та байк
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('export')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeTab === 'export'
-                  ? 'bg-[#252a35] text-[#F2EFE9]'
-                  : 'text-[#9DA4B0] hover:text-white'
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              Додати в Three.js
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-[#9DA4B0] whitespace-nowrap">
+              У центрі:
+            </span>
+            <div className="flex items-center gap-1 bg-[#0f1116] p-1 rounded-lg flex-wrap">
+              {STAGE_ELEMENTS.map((el) => {
+                const active = focusElement === el.id;
+                return (
+                  <button
+                    key={el.id}
+                    type="button"
+                    onClick={() => onFocusElementChange(el.id)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      active
+                        ? 'bg-[#C93838] text-white'
+                        : 'text-[#C5CBD6] hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {el.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {focusElement === 'scene' && (
+              <>
+                <button
+                  type="button"
+                  onClick={onToggleTrees}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    showTrees
+                      ? 'bg-[#2e5942]/30 border-[#4d8c66]/60 text-[#bfead0]'
+                      : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
+                  }`}
+                >
+                  <Trees className="w-3.5 h-3.5" />
+                  Дерева
+                </button>
+                <button
+                  type="button"
+                  onClick={onToggleObstacles}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    showObstacles
+                      ? 'bg-[#8a5629]/30 border-[#c98442]/60 text-[#ffe0b8]'
+                      : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
+                  }`}
+                >
+                  <Construction className="w-3.5 h-3.5" />
+                  Перешкоди
+                </button>
+              </>
+            )}
+
+            {isCreatureOrScene && (
+              <>
+                <button
+                  type="button"
+                  onClick={onToggleMotorcycle}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    hasMotorcycle || pose === 'ride'
+                      ? 'bg-[#d18e2c]/20 border-[#d18e2c]/60 text-[#ffe0a3]'
+                      : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
+                  }`}
+                >
+                  <Bike className="w-3.5 h-3.5" />
+                  Мотоцикл
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onConfigChange({ ...config, duoMode: !config.duoMode })
+                  }
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    config.duoMode
+                      ? 'bg-[#3474cc]/20 border-[#3474cc]/60 text-[#cfe2ff]'
+                      : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Дует
+                </button>
+              </>
+            )}
+
             <button
               type="button"
-              onClick={onToggleTrees}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                showTrees
-                  ? 'bg-[#2e5942]/30 border-[#4d8c66]/60 text-[#bfead0]'
-                  : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
-              }`}
+              onClick={onOpenCodeModal}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <Trees className="w-3.5 h-3.5" />
-              Дерева
+              <Code2 className="w-3.5 h-3.5" />
+              Код JS
             </button>
-            <button
-              type="button"
-              onClick={onToggleMotorcycle}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                hasMotorcycle || pose === 'ride'
-                  ? 'bg-[#d18e2c]/20 border-[#d18e2c]/60 text-[#ffe0a3]'
-                  : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
-              }`}
-            >
-              <Bike className="w-3.5 h-3.5" />
-              Мотоцикл
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onConfigChange({ ...config, duoMode: !config.duoMode })
-              }
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                config.duoMode
-                  ? 'bg-[#3474cc]/20 border-[#3474cc]/60 text-[#cfe2ff]'
-                  : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              Дует
-            </button>
+
             <button
               type="button"
               onClick={() => onAutoRotateChange(!autoRotate)}
@@ -248,6 +418,7 @@ export default function ControlDock({
               <RotateCw className="w-3.5 h-3.5" />
               Оберт
             </button>
+
             <button
               type="button"
               onClick={onExportGLB}
@@ -259,9 +430,306 @@ export default function ControlDock({
           </div>
         </div>
 
-        {/* Tab content */}
+        {/* Row 2 (when Creature or Full Scene is focused): Sub-tabs */}
+        {isCreatureOrScene && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-1.5 border-b border-white/10 bg-[#12151c]">
+            <div className="flex items-center gap-1 bg-[#0f1116] p-0.5 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setActiveTab('yarn')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  activeTab === 'yarn'
+                    ? 'bg-[#252a35] text-[#F2EFE9]'
+                    : 'text-[#9DA4B0] hover:text-white'
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Пряжа та предмети
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('motion')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  activeTab === 'motion'
+                    ? 'bg-[#252a35] text-[#F2EFE9]'
+                    : 'text-[#9DA4B0] hover:text-white'
+                }`}
+              >
+                <Play className="w-3.5 h-3.5" />
+                Поза, байк і траса
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('export')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  activeTab === 'export'
+                    ? 'bg-[#252a35] text-[#F2EFE9]'
+                    : 'text-[#9DA4B0] hover:text-white'
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                Додати в Three.js
+              </button>
+            </div>
+
+            {renderTrackSurfaceButtons()}
+          </div>
+        )}
+
+        {/* Inspector / Editor Body */}
         <div className="px-4 py-3">
-          {activeTab === 'yarn' && (
+          {/* 1. TREE CENTER INSPECTOR */}
+          {focusElement === 'tree' && (
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-[#9DA4B0] whitespace-nowrap">
+                      Порода
+                    </span>
+                    <div className="flex items-center gap-1 bg-[#0f1116] p-0.5 rounded-lg">
+                      {TREE_VARIANTS.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => onCenterTreeVariantChange(v.id)}
+                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                            centerTreeVariant === v.id
+                              ? 'bg-[#F2EFE9] text-[#12151b]'
+                              : 'text-[#C5CBD6] hover:text-white'
+                          }`}
+                        >
+                          {v.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-[#9DA4B0] whitespace-nowrap">
+                      Кора
+                    </span>
+                    <div className="flex items-center gap-1 bg-[#0f1116] p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => onCenterTreeBarkChange('spruce')}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                          centerTreeBark === 'spruce'
+                            ? 'bg-[#252a35] text-[#F2EFE9]'
+                            : 'text-[#9DA4B0] hover:text-white'
+                        }`}
+                      >
+                        Ялинова кора
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onCenterTreeBarkChange('birch')}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                          centerTreeBark === 'birch'
+                            ? 'bg-[#252a35] text-[#F2EFE9]'
+                            : 'text-[#9DA4B0] hover:text-white'
+                        }`}
+                      >
+                        Березова кора
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {renderTrackSurfaceButtons()}
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-[#9DA4B0] whitespace-nowrap">
+                    Крона / Хвоя
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {FOLIAGE_PRESETS.map((preset) => {
+                      const active =
+                        centerTreeFoliage.color.toLowerCase() ===
+                        preset.color.toLowerCase();
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          title={preset.label}
+                          onClick={() =>
+                            onCenterTreeFoliageChange({
+                              color: preset.color,
+                              sheen: preset.sheen,
+                            })
+                          }
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                            active
+                              ? 'bg-[#252a35] border-white/40 text-white'
+                              : 'bg-white/5 border-white/10 text-[#C5CBD6] hover:text-white'
+                          }`}
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full border border-white/25"
+                            style={{ backgroundColor: preset.color }}
+                          />
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-xs text-[#C5CBD6]">
+                  <span className="whitespace-nowrap">Масштаб</span>
+                  <input
+                    type="range"
+                    min={0.6}
+                    max={1.4}
+                    step={0.05}
+                    value={centerTreeScale}
+                    onChange={(e) =>
+                      onCenterTreeScaleChange(parseFloat(e.target.value))
+                    }
+                    className="studio-slider w-24"
+                  />
+                  <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-9">
+                    {centerTreeScale.toFixed(2)}×
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* 2. OBSTACLE CENTER INSPECTOR */}
+          {focusElement === 'obstacle' && (
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-medium text-[#9DA4B0] mr-1 whitespace-nowrap">
+                    Тип перешкоди
+                  </span>
+                  {OBSTACLE_TYPES.map((obs) => (
+                    <button
+                      key={obs.id}
+                      type="button"
+                      onClick={() => onCenterObstacleTypeChange(obs.id)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                        centerObstacleType === obs.id
+                          ? 'bg-[#F2EFE9] text-[#12151b]'
+                          : 'bg-white/5 text-[#C5CBD6] hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {obs.label}
+                    </button>
+                  ))}
+                </div>
+
+                {renderTrackSurfaceButtons()}
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
+                <label className="flex items-center gap-2 text-xs text-[#C5CBD6]">
+                  <span className="whitespace-nowrap">Масштаб перешкоди</span>
+                  <input
+                    type="range"
+                    min={0.6}
+                    max={1.4}
+                    step={0.05}
+                    value={centerObstacleScale}
+                    onChange={(e) =>
+                      onCenterObstacleScaleChange(parseFloat(e.target.value))
+                    }
+                    className="studio-slider w-28"
+                  />
+                  <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-9">
+                    {centerObstacleScale.toFixed(2)}×
+                  </span>
+                </label>
+
+                <span className="text-xs text-[#9DA4B0]">
+                  Процедурний модуль{' '}
+                  <span className="font-mono text-[#F2EFE9]">
+                    createYarnTrack.js
+                  </span>
+                  {exportMessage && (
+                    <span className="ml-2 text-[#9bd6a8] font-medium">
+                      · {exportMessage}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 3. MOTORCYCLE CENTER INSPECTOR */}
+          {focusElement === 'motorcycle' && (
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {renderBikeColorControls()}
+                {renderTrackSurfaceButtons()}
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex flex-wrap items-center gap-x-5 gap-y-2">
+                <label className="flex items-center gap-2 text-xs text-[#C5CBD6]">
+                  <span className="whitespace-nowrap">Товщина нитки</span>
+                  <input
+                    type="range"
+                    min={0.78}
+                    max={1.28}
+                    step={0.02}
+                    value={config.yarnThickness}
+                    onChange={(e) =>
+                      onConfigChange({
+                        ...config,
+                        yarnThickness: parseFloat(e.target.value),
+                      })
+                    }
+                    className="studio-slider w-20"
+                  />
+                  <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-8">
+                    {config.yarnThickness.toFixed(2)}
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-[#C5CBD6]">
+                  <span className="whitespace-nowrap">Кермо</span>
+                  <input
+                    type="range"
+                    min={-0.55}
+                    max={0.55}
+                    step={0.02}
+                    value={bikeSteer}
+                    onChange={(e) =>
+                      onBikeSteerChange(parseFloat(e.target.value))
+                    }
+                    className="studio-slider w-24"
+                  />
+                  <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-8">
+                    {Math.round((bikeSteer * 180) / Math.PI)}°
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-[#C5CBD6]">
+                  <span className="whitespace-nowrap">Швидкість коліс</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={4}
+                    step={0.1}
+                    value={bikeSpeed}
+                    onChange={(e) =>
+                      onBikeSpeedChange(parseFloat(e.target.value))
+                    }
+                    className="studio-slider w-24"
+                  />
+                  <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-7">
+                    {bikeSpeed.toFixed(1)}
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* 4. CREATURE OR FULL SCENE TABS */}
+          {isCreatureOrScene && activeTab === 'yarn' && (
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-2.5">
@@ -437,7 +905,7 @@ export default function ControlDock({
             </div>
           )}
 
-          {activeTab === 'motion' && (
+          {isCreatureOrScene && activeTab === 'motion' && (
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -495,91 +963,8 @@ export default function ControlDock({
 
               {(hasMotorcycle || pose === 'ride') && (
                 <div className="pt-2 border-t border-white/10 space-y-2">
-                  {/* Bike & saddle colors */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#9DA4B0] whitespace-nowrap">
-                          Байк
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {BIKE_PRESETS.map((preset) => {
-                            const active =
-                              config.bikeColor.toLowerCase() ===
-                              preset.color.toLowerCase();
-                            return (
-                              <button
-                                key={preset.id}
-                                type="button"
-                                title={preset.label}
-                                onClick={() =>
-                                  onConfigChange({
-                                    ...config,
-                                    bikeColor: preset.color,
-                                    bikeSheenColor: preset.sheenColor,
-                                  })
-                                }
-                                className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
-                                  active
-                                    ? 'border-white scale-110'
-                                    : 'border-white/20 hover:scale-105'
-                                }`}
-                                style={{ backgroundColor: preset.color }}
-                              />
-                            );
-                          })}
-                          <label
-                            title="Власний колір байка"
-                            className="inline-flex items-center px-1 py-0.5 rounded bg-white/5 border border-white/10 cursor-pointer"
-                          >
-                            <input
-                              type="color"
-                              value={config.bikeColor}
-                              onChange={(e) =>
-                                onConfigChange({
-                                  ...config,
-                                  bikeColor: e.target.value,
-                                  bikeSheenColor: '#e6edf2',
-                                })
-                              }
-                              className="w-4 h-4 rounded border-0 bg-transparent p-0 cursor-pointer"
-                            />
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#9DA4B0] whitespace-nowrap">
-                          Сідло
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {SEAT_PRESETS.map((preset) => {
-                            const active =
-                              config.seatColor.toLowerCase() ===
-                              preset.color.toLowerCase();
-                            return (
-                              <button
-                                key={preset.id}
-                                type="button"
-                                title={preset.label}
-                                onClick={() =>
-                                  onConfigChange({
-                                    ...config,
-                                    seatColor: preset.color,
-                                  })
-                                }
-                                className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
-                                  active
-                                    ? 'border-white scale-110'
-                                    : 'border-white/20 hover:scale-105'
-                                }`}
-                                style={{ backgroundColor: preset.color }}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
+                    {renderBikeColorControls()}
 
                     <button
                       type="button"
@@ -647,7 +1032,9 @@ export default function ControlDock({
                         className="studio-slider w-20"
                       />
                       <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-10">
-                        {rideSeatY >= 0 ? `+${rideSeatY.toFixed(2)}` : rideSeatY.toFixed(2)}
+                        {rideSeatY >= 0
+                          ? `+${rideSeatY.toFixed(2)}`
+                          : rideSeatY.toFixed(2)}
                       </span>
                     </label>
 
@@ -665,7 +1052,9 @@ export default function ControlDock({
                         className="studio-slider w-20"
                       />
                       <span className="font-mono tabular-nums text-[11px] text-[#9DA4B0] w-10">
-                        {rideSeatZ >= 0 ? `+${rideSeatZ.toFixed(2)}` : rideSeatZ.toFixed(2)}
+                        {rideSeatZ >= 0
+                          ? `+${rideSeatZ.toFixed(2)}`
+                          : rideSeatZ.toFixed(2)}
                       </span>
                     </label>
 
@@ -692,7 +1081,7 @@ export default function ControlDock({
             </div>
           )}
 
-          {activeTab === 'export' && (
+          {isCreatureOrScene && activeTab === 'export' && (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-[#C5CBD6] leading-relaxed">
                 Окремі модулі{' '}
@@ -702,12 +1091,16 @@ export default function ControlDock({
                 ,{' '}
                 <span className="font-mono text-[#F2EFE9]">
                   createYarnMotorcycle.js
-                </span>{' '}
-                та{' '}
+                </span>
+                ,{' '}
                 <span className="font-mono text-[#F2EFE9]">
                   createYarnTree.js
                 </span>{' '}
-                або спільний <span className="font-mono text-[#F2EFE9]">.GLB</span>.
+                та{' '}
+                <span className="font-mono text-[#F2EFE9]">
+                  createYarnTrack.js
+                </span>{' '}
+                або <span className="font-mono text-[#F2EFE9]">.GLB</span>.
                 {exportMessage && (
                   <span className="ml-2 text-[#9bd6a8] font-medium">
                     · {exportMessage}

@@ -6,6 +6,7 @@ import { YarnCreatureConfig } from '@/lib/three/types';
 import {
   generateStandaloneMotorcycleCode,
   generateStandaloneThreeJsCode,
+  generateStandaloneTrackCode,
   generateStandaloneTreeCode,
 } from '@/lib/three/exportCreature';
 
@@ -23,9 +24,9 @@ export default function CodeExportModal({
   onExportGLB,
 }: CodeExportModalProps) {
   const [copied, setCopied] = useState(false);
-  const [fileTab, setFileTab] = useState<'creature' | 'motorcycle' | 'tree'>(
-    'creature'
-  );
+  const [fileTab, setFileTab] = useState<
+    'creature' | 'motorcycle' | 'tree' | 'track'
+  >('creature');
 
   if (!open) return null;
 
@@ -34,14 +35,18 @@ export default function CodeExportModal({
       ? generateStandaloneThreeJsCode(config)
       : fileTab === 'motorcycle'
         ? generateStandaloneMotorcycleCode(config)
-        : generateStandaloneTreeCode();
+        : fileTab === 'tree'
+          ? generateStandaloneTreeCode()
+          : generateStandaloneTrackCode();
 
   const filename =
     fileTab === 'creature'
       ? 'createYarnCreature.js'
       : fileTab === 'motorcycle'
         ? 'createYarnMotorcycle.js'
-        : 'createYarnTree.js';
+        : fileTab === 'tree'
+          ? 'createYarnTree.js'
+          : 'createYarnTrack.js';
 
   const handleCopy = async () => {
     try {
@@ -89,7 +94,7 @@ export default function CodeExportModal({
               Додати моделі у вашу Three.js сцену
             </h2>
             <p className="text-xs text-[#9DA4B0] mt-0.5">
-              JS-код: окремі модулі (персонаж, мотоцикл, дерева) • .GLB: спільний файл сцени
+              JS-код: окремі модулі (персонаж, мотоцикл, дерева, трек) • .GLB: файл сцени
             </p>
           </div>
           <button
@@ -103,7 +108,7 @@ export default function CodeExportModal({
         </div>
 
         <div className="px-5 py-3 bg-[#12141a] border-b border-white/10 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1 bg-[#0b0d11] p-1 rounded-lg">
+          <div className="flex flex-wrap items-center gap-1 bg-[#0b0d11] p-1 rounded-lg">
             <button
               type="button"
               onClick={() => setFileTab('creature')}
@@ -136,6 +141,17 @@ export default function CodeExportModal({
               }`}
             >
               createYarnTree.js
+            </button>
+            <button
+              type="button"
+              onClick={() => setFileTab('track')}
+              className={`px-2.5 py-1 rounded-md text-xs font-mono transition-colors cursor-pointer ${
+                fileTab === 'track'
+                  ? 'bg-[#252a35] text-[#F2EFE9]'
+                  : 'text-[#9DA4B0] hover:text-white'
+              }`}
+            >
+              createYarnTrack.js
             </button>
           </div>
 

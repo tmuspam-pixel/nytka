@@ -687,3 +687,357 @@ export function createTreeFoliageTextureSet(
     },
   };
 }
+
+export type MotoTrackTextureStyle = 'mud_ruts' | 'gravel_berm' | 'wood_ramp';
+
+/**
+ * Generates seamless 512x512 procedural motocross track textures:
+ * - 'mud_ruts': loamy dirt track with knobby tire ruts, damp sheen in grooves, and pebbles
+ * - 'gravel_berm': compacted sandy-ochre gravel with skid marks and stone grit
+ * - 'wood_ramp': weathered craft wooden planks with painted chevron warning stripes
+ */
+export function createMotoTrackTextureSet(
+  style: MotoTrackTextureStyle = 'mud_ruts',
+  repeatU = 2,
+  repeatV = 2,
+  maxAnisotropy = 4
+): TreeTextureSet {
+  const size = 512;
+
+  const colorCanvas = document.createElement('canvas');
+  colorCanvas.width = size;
+  colorCanvas.height = size;
+  const colorCtx = colorCanvas.getContext('2d')!;
+
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = size;
+  bumpCanvas.height = size;
+  const bumpCtx = bumpCanvas.getContext('2d')!;
+
+  const roughCanvas = document.createElement('canvas');
+  roughCanvas.width = size;
+  roughCanvas.height = size;
+  const roughCtx = roughCanvas.getContext('2d')!;
+
+  const colorImg = colorCtx.createImageData(size, size);
+  const bumpImg = bumpCtx.createImageData(size, size);
+  const roughImg = roughCtx.createImageData(size, size);
+
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const idx = (y * size + x) * 4;
+
+      if (style === 'wood_ramp') {
+        const plank = Math.floor(u * 5);
+        const plankLocal = (u * 5) % 1;
+        const seam = plankLocal < 0.035 || plankLocal > 0.965 ? 1 : 0;
+        const grain =
+          0.5 +
+          0.5 *
+            Math.sin((u * 42 + Math.sin(v * Math.PI * 2 + plank) * 0.45) * Math.PI * 2);
+        const micro = (hash2D(x, Math.floor(y / 2)) - 0.5) * 0.1;
+
+        const symU = Math.abs(u - 0.5);
+        const chevronBand = ((v * 4 + symU * 1.6) % 1 + 1) % 1;
+        const isStripe = symU < 0.36 && chevronBand < 0.24;
+        const isRedStripe = isStripe && Math.floor(v * 4 + symU * 1.6) % 2 === 0;
+
+        const h = Math.max(0, Math.min(1, (0.62 + grain * 0.25 + micro) * (1 - seam * 0.85)));
+        const shade = 0.55 + h * 0.5;
+        let r = (122 + (plank % 2) * 10) * shade;
+        let g = (88 + (plank % 2) * 7) * shade;
+        let b = (58 + (plank % 2) * 5) * shade;
+
+        if (isStripe && !seam) {
+          const wear = 0.72 + micro * 1.2;
+          if (isRedStripe) {
+            r = r * (1 - wear) + 196 * wear;
+            g = g * (1 - wear) + 56 * wear;
+            b = b * (1 - wear) + 48 * wear;
+          } else {
+            r = r * (1 - wear) + 232 * wear;
+            g = g * (1 - wear) + 224 * wear;
+            b = b * (1 - wear) + 208 * wear;
+          }
+        }
+        if (seam) {
+          r *= 0.35;
+          g *= 0.35;
+          b *= 0.35;
+        }
+
+        colorImg.data[idx] = clampByte(r);
+        colorImg.data[idx + 1] = clampByte(g);
+        colorImg.data[idx + 2] = clampByte(b);
+        colorImg.data[idx + 3] = 255;
+
+        const bumpByte = clampByte(h * 255);
+        bumpImg.data[idx] = bumpByte;
+        bumpImg.data[idx + 1] = bumpByte;
+        bumpImg.data[idx + 2] = bumpByte;
+        bumpImg.data[idx + 3] = 255;
+
+        const roughByte = clampByte(seam ? 245 : isStripe ? 175 : 210 - grain * 25);
+        roughImg.data[idx] = roughByte;
+        roughImg.data[idx + 1] = roughByte;
+        roughImg.data[idx + 2] = roughByte;
+        roughImg.data[idx + 3] = 255;
+      } else if (style === 'gravel_berm') {
+        const stone = hash2D(Math.floor(x / 3), Math.floor(y / 3));
+        const fine = hash2D(x, y);
+        const rut =
+          Math.exp(-Math.pow((u - 0.38) * 6, 2)) +
+          Math.exp(-Math.pow((u - 0.64) * 6, 2));
+        const knob = 0.5 + 0.5 * Math.sin(v * 48 * Math.PI * 2);
+
+        const h = Math.max(
+          0,
+          Math.min(1, 0.45 + stone * 0.36 + fine * 0.14 - rut * 0.2 + rut * knob * 0.12)
+        );
+        const shade = 0.62 + h * 0.48;
+        const r = (132 - rut * 22) * shade;
+        const g = (111 - rut * 19) * shade;
+        const b = (84 - rut * 16) * shade;
+
+        colorImg.data[idx] = clampByte(r);
+        colorImg.data[idx + 1] = clampByte(g);
+        colorImg.data[idx + 2] = clampByte(b);
+        colorImg.data[idx + 3] = 255;
+
+        const bumpByte = clampByte(h * 255);
+        bumpImg.data[idx] = bumpByte;
+        bumpImg.data[idx + 1] = bumpByte;
+        bumpImg.data[idx + 2] = bumpByte;
+        bumpImg.data[idx + 3] = 255;
+
+        const roughByte = clampByte(244 - rut * 42 - stone * 18);
+        roughImg.data[idx] = roughByte;
+        roughImg.data[idx + 1] = roughByte;
+        roughImg.data[idx + 2] = roughByte;
+        roughImg.data[idx + 3] = 255;
+      } else {
+        const wobble = Math.sin(v * Math.PI * 2) * 0.035;
+        const rut1 = Math.exp(-Math.pow(u + wobble - 0.34, 2) * 90);
+        const rut2 = Math.exp(-Math.pow(u - wobble * 0.7 - 0.66, 2) * 90);
+        const rutDepth = Math.min(1, rut1 + rut2);
+
+        const knobby =
+          0.5 +
+          0.5 *
+            Math.sin((v * 44 + Math.sin(u * 20) * 0.35) * Math.PI * 2);
+        const clod = hash2D(Math.floor(x / 4), Math.floor(y / 4));
+        const grit = hash2D(x, y);
+
+        const h = Math.max(
+          0,
+          Math.min(
+            1,
+            0.55 +
+              clod * 0.25 +
+              grit * 0.12 -
+              rutDepth * 0.36 +
+              rutDepth * knobby * 0.18
+          )
+        );
+        const pebble = grit > 0.965 ? 0.35 : 0;
+
+        const shade = 0.48 + h * 0.62 - rutDepth * 0.14;
+        const r = 92 * shade + pebble * 55;
+        const g = 69 * shade + pebble * 48;
+        const b = 47 * shade + pebble * 40;
+
+        colorImg.data[idx] = clampByte(r);
+        colorImg.data[idx + 1] = clampByte(g);
+        colorImg.data[idx + 2] = clampByte(b);
+        colorImg.data[idx + 3] = 255;
+
+        const bumpByte = clampByte(h * 255);
+        bumpImg.data[idx] = bumpByte;
+        bumpImg.data[idx + 1] = bumpByte;
+        bumpImg.data[idx + 2] = bumpByte;
+        bumpImg.data[idx + 3] = 255;
+
+        const roughByte = clampByte(242 - rutDepth * 88 - knobby * rutDepth * 15);
+        roughImg.data[idx] = roughByte;
+        roughImg.data[idx + 1] = roughByte;
+        roughImg.data[idx + 2] = roughByte;
+        roughImg.data[idx + 3] = 255;
+      }
+    }
+  }
+
+  colorCtx.putImageData(colorImg, 0, 0);
+  bumpCtx.putImageData(bumpImg, 0, 0);
+  roughCtx.putImageData(roughImg, 0, 0);
+
+  const configureTex = (canvas: HTMLCanvasElement, isColor: boolean) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatU, repeatV);
+    tex.anisotropy = maxAnisotropy;
+    if (isColor) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+    }
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const map = configureTex(colorCanvas, true);
+  const bumpMap = configureTex(bumpCanvas, false);
+  const roughnessMap = configureTex(roughCanvas, false);
+
+  return {
+    map,
+    bumpMap,
+    roughnessMap,
+    dispose: () => {
+      map.dispose();
+      bumpMap.dispose();
+      roughnessMap.dispose();
+    },
+  };
+}
+
+/**
+ * Generates a radial 512x512 circular motocross dirt-track loop texture (UV centered at 0.5, 0.5)
+ * with concentric tire ruts, gravel berms, mossy edge, and painted start/finish chalk line.
+ */
+export function createCircularMotoTrackTextureSet(
+  style: 'mud_ruts' | 'gravel_berm' = 'mud_ruts',
+  maxAnisotropy = 4
+): TreeTextureSet {
+  const size = 512;
+
+  const colorCanvas = document.createElement('canvas');
+  colorCanvas.width = size;
+  colorCanvas.height = size;
+  const colorCtx = colorCanvas.getContext('2d')!;
+
+  const bumpCanvas = document.createElement('canvas');
+  bumpCanvas.width = size;
+  bumpCanvas.height = size;
+  const bumpCtx = bumpCanvas.getContext('2d')!;
+
+  const roughCanvas = document.createElement('canvas');
+  roughCanvas.width = size;
+  roughCanvas.height = size;
+  const roughCtx = roughCanvas.getContext('2d')!;
+
+  const colorImg = colorCtx.createImageData(size, size);
+  const bumpImg = bumpCtx.createImageData(size, size);
+  const roughImg = roughCtx.createImageData(size, size);
+
+  for (let y = 0; y < size; y++) {
+    const dy = y / size - 0.5;
+    for (let x = 0; x < size; x++) {
+      const dx = x / size - 0.5;
+      const idx = (y * size + x) * 4;
+
+      const rad = Math.hypot(dx, dy) * 2;
+      const ang = Math.atan2(dy, dx);
+
+      const wobble = Math.sin(ang * 3 + 0.6) * 0.02 + Math.cos(ang * 5) * 0.01;
+      const rTrack = rad + wobble;
+
+      const trackCenter = 0.71;
+      const distFromTrack = Math.abs(rTrack - trackCenter);
+      const inTrack = Math.max(0, 1 - Math.max(0, (distFromTrack - 0.14) * 14));
+
+      const rutA = Math.exp(-Math.pow((rTrack - 0.66) * 26, 2));
+      const rutB = Math.exp(-Math.pow((rTrack - 0.76) * 26, 2));
+      const rut = Math.min(1, rutA + rutB);
+      const knobby = 0.5 + 0.5 * Math.sin(ang * 140);
+
+      const clod = hash2D(Math.floor(x / 3), Math.floor(y / 3));
+      const grit = hash2D(x, y);
+
+      const isStartZone =
+        Math.abs(ang) < 0.045 && rTrack > 0.56 && rTrack < 0.86;
+      const checker =
+        ((Math.floor((rTrack - 0.56) * 40) + Math.floor((ang + 0.045) * 60)) & 1) === 0;
+
+      const h = Math.max(
+        0,
+        Math.min(
+          1,
+          0.55 + clod * 0.24 + grit * 0.12 - rut * 0.34 + rut * knobby * 0.16
+        )
+      );
+
+      let r: number;
+      let g: number;
+      let b: number;
+
+      if (style === 'gravel_berm') {
+        const shade = 0.58 + h * 0.48 - rut * 0.12;
+        const mossBlend = (1 - inTrack) * 0.52;
+        r = 128 * shade * (1 - mossBlend) + 64 * mossBlend;
+        g = 106 * shade * (1 - mossBlend) + 84 * mossBlend;
+        b = 80 * shade * (1 - mossBlend) + 52 * mossBlend;
+      } else {
+        const shade = 0.48 + h * 0.58 - rut * 0.16;
+        const mossBlend = (1 - inTrack) * 0.65;
+        r = 94 * shade * (1 - mossBlend) + 52 * mossBlend;
+        g = 68 * shade * (1 - mossBlend) + 76 * mossBlend;
+        b = 46 * shade * (1 - mossBlend) + 46 * mossBlend;
+      }
+
+      if (isStartZone && checker) {
+        r = r * 0.35 + 225 * 0.65;
+        g = g * 0.35 + 218 * 0.65;
+        b = b * 0.35 + 202 * 0.65;
+      }
+
+      colorImg.data[idx] = clampByte(r);
+      colorImg.data[idx + 1] = clampByte(g);
+      colorImg.data[idx + 2] = clampByte(b);
+      colorImg.data[idx + 3] = 255;
+
+      const bumpByte = clampByte(h * 255);
+      bumpImg.data[idx] = bumpByte;
+      bumpImg.data[idx + 1] = bumpByte;
+      bumpImg.data[idx + 2] = bumpByte;
+      bumpImg.data[idx + 3] = 255;
+
+      const roughByte = clampByte(242 - rut * 85 - (isStartZone ? 25 : 0));
+      roughImg.data[idx] = roughByte;
+      roughImg.data[idx + 1] = roughByte;
+      roughImg.data[idx + 2] = roughByte;
+      roughImg.data[idx + 3] = 255;
+    }
+  }
+
+  colorCtx.putImageData(colorImg, 0, 0);
+  bumpCtx.putImageData(bumpImg, 0, 0);
+  roughCtx.putImageData(roughImg, 0, 0);
+
+  const configureTex = (canvas: HTMLCanvasElement, isColor: boolean) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.anisotropy = maxAnisotropy;
+    if (isColor) {
+      tex.colorSpace = THREE.SRGBColorSpace;
+    }
+    tex.needsUpdate = true;
+    return tex;
+  };
+
+  const map = configureTex(colorCanvas, true);
+  const bumpMap = configureTex(bumpCanvas, false);
+  const roughnessMap = configureTex(roughCanvas, false);
+
+  return {
+    map,
+    bumpMap,
+    roughnessMap,
+    dispose: () => {
+      map.dispose();
+      bumpMap.dispose();
+      roughnessMap.dispose();
+    },
+  };
+}

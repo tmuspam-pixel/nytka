@@ -885,3 +885,182 @@ export function createYarnGrove(options = {}) {
 `;
 }
 
+/**
+ * Generates a standalone Three.js ES module for procedural motocross dirt-track
+ * textures (mud ruts, gravel, painted ramp planks) and multi-part obstacles.
+ */
+export function generateStandaloneTrackCode(): string {
+  return `// Окремий файл: createYarnTrack.js — Текстури мототреку та перешкоди для Three.js
+// Використання:
+//   import { createTrackSurfaceTextures, createTrackObstacle } from './createYarnTrack';
+//
+//   const dirtTex = createTrackSurfaceTextures('mud_ruts');
+//   const groundMat = new THREE.MeshStandardMaterial({
+//     map: dirtTex.map,
+//     bumpMap: dirtTex.bumpMap,
+//     roughnessMap: dirtTex.roughnessMap,
+//     roughness: 0.92,
+//   });
+//
+//   const ramp = createTrackObstacle({ type: 'ramp', scale: 1.0 });
+//   ramp.group.position.set(0, 0, -1.5);
+//   scene.add(ramp.group);
+
+import * as THREE from 'three';
+
+function hash2D(x, y) {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+  return s - Math.floor(s);
+}
+
+export function createTrackSurfaceTextures(style = 'mud_ruts', repeatU = 2, repeatV = 2) {
+  const size = 256;
+  const cCanvas = document.createElement('canvas');
+  const bCanvas = document.createElement('canvas');
+  const rCanvas = document.createElement('canvas');
+  cCanvas.width = bCanvas.width = rCanvas.width = size;
+  cCanvas.height = bCanvas.height = rCanvas.height = size;
+  const cCtx = cCanvas.getContext('2d');
+  const bCtx = bCanvas.getContext('2d');
+  const rCtx = rCanvas.getContext('2d');
+
+  const cImg = cCtx.createImageData(size, size);
+  const bImg = bCtx.createImageData(size, size);
+  const rImg = rCtx.createImageData(size, size);
+
+  for (let y = 0; y < size; y++) {
+    const v = y / size;
+    for (let x = 0; x < size; x++) {
+      const u = x / size;
+      const idx = (y * size + x) * 4;
+
+      if (style === 'wood_ramp') {
+        const plank = Math.floor(u * 5);
+        const local = (u * 5) % 1;
+        const seam = local < 0.04 || local > 0.96 ? 1 : 0;
+        const grain = 0.5 + 0.5 * Math.sin((u * 40 + Math.sin(v * 6 + plank) * 0.4) * Math.PI * 2);
+        const symU = Math.abs(u - 0.5);
+        const chevron = ((v * 4 + symU * 1.6) % 1 + 1) % 1;
+        const stripe = symU < 0.36 && chevron < 0.24 && !seam;
+        const h = Math.max(0, Math.min(1, (0.62 + grain * 0.25) * (1 - seam * 0.85)));
+        let r = 124 * (0.55 + h * 0.5);
+        let g = 88 * (0.55 + h * 0.5);
+        let b = 58 * (0.55 + h * 0.5);
+        if (stripe) {
+          const red = Math.floor(v * 4 + symU * 1.6) % 2 === 0;
+          r = red ? 192 : 228;
+          g = red ? 58 : 220;
+          b = red ? 48 : 204;
+        }
+        cImg.data[idx] = Math.min(255, Math.round(r));
+        cImg.data[idx + 1] = Math.min(255, Math.round(g));
+        cImg.data[idx + 2] = Math.min(255, Math.round(b));
+        cImg.data[idx + 3] = 255;
+        const bv = Math.round(h * 255);
+        bImg.data[idx] = bImg.data[idx + 1] = bImg.data[idx + 2] = bv;
+        bImg.data[idx + 3] = 255;
+        const rv = seam ? 245 : 195;
+        rImg.data[idx] = rImg.data[idx + 1] = rImg.data[idx + 2] = rv;
+        rImg.data[idx + 3] = 255;
+      } else {
+        const wobble = Math.sin(v * Math.PI * 2) * 0.035;
+        const rut = Math.min(
+          1,
+          Math.exp(-Math.pow(u + wobble - 0.34, 2) * 90) +
+            Math.exp(-Math.pow(u - wobble * 0.7 - 0.66, 2) * 90)
+        );
+        const knobby = 0.5 + 0.5 * Math.sin(v * 44 * Math.PI * 2);
+        const clod = hash2D(Math.floor(x / 3), Math.floor(y / 3));
+        const h = Math.max(0, Math.min(1, 0.55 + clod * 0.25 - rut * 0.35 + rut * knobby * 0.18));
+        const shade = style === 'gravel_berm' ? 0.62 + h * 0.45 : 0.48 + h * 0.62 - rut * 0.14;
+        const baseR = style === 'gravel_berm' ? 128 : 92;
+        const baseG = style === 'gravel_berm' ? 108 : 69;
+        const baseB = style === 'gravel_berm' ? 82 : 47;
+        cImg.data[idx] = Math.min(255, Math.round(baseR * shade));
+        cImg.data[idx + 1] = Math.min(255, Math.round(baseG * shade));
+        cImg.data[idx + 2] = Math.min(255, Math.round(baseB * shade));
+        cImg.data[idx + 3] = 255;
+        const bv = Math.round(h * 255);
+        bImg.data[idx] = bImg.data[idx + 1] = bImg.data[idx + 2] = bv;
+        bImg.data[idx + 3] = 255;
+        const rv = Math.max(120, Math.round(242 - rut * 85));
+        rImg.data[idx] = rImg.data[idx + 1] = rImg.data[idx + 2] = rv;
+        rImg.data[idx + 3] = 255;
+      }
+    }
+  }
+  cCtx.putImageData(cImg, 0, 0);
+  bCtx.putImageData(bImg, 0, 0);
+  rCtx.putImageData(rImg, 0, 0);
+
+  const prep = (canvas, isColor) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeatU, repeatV);
+    if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  };
+  return {
+    map: prep(cCanvas, true),
+    bumpMap: prep(bCanvas, false),
+    roughnessMap: prep(rCanvas, false),
+  };
+}
+
+export function createTrackObstacle(options = {}) {
+  const type = options.type ?? 'ramp';
+  const scale = options.scale ?? 1.0;
+  const group = new THREE.Group();
+  group.name = 'TrackObstacle_' + type;
+  group.scale.setScalar(scale);
+
+  const rampTex = createTrackSurfaceTextures('wood_ramp', 1, 1);
+  const rampMat = new THREE.MeshStandardMaterial({
+    map: rampTex.map,
+    bumpMap: rampTex.bumpMap,
+    roughnessMap: rampTex.roughnessMap,
+    roughness: 0.85,
+  });
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3f28, roughness: 0.86 });
+  const redYarn = new THREE.MeshPhysicalMaterial({ color: 0xc93838, roughness: 0.92, sheen: 1.0 });
+  const tireMat = new THREE.MeshPhysicalMaterial({ color: 0x22252b, roughness: 0.95 });
+
+  if (type === 'log_jump') {
+    const logGeo = new THREE.CylinderGeometry(0.095, 0.105, 0.82, 14);
+    logGeo.rotateZ(Math.PI / 2);
+    [[0, 0.095, -0.09], [0, 0.095, 0.09], [0, 0.25, 0]].forEach(([x, y, z]) => {
+      const m = new THREE.Mesh(logGeo, woodMat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      group.add(m);
+    });
+  } else if (type === 'tire_barrier') {
+    const tireGeo = new THREE.TorusGeometry(0.16, 0.068, 12, 24);
+    [[-0.21, 0.21, 0.03], [0.21, 0.21, 0.02], [0, 0.34, -0.09]].forEach(([x, y, z]) => {
+      const m = new THREE.Mesh(tireGeo, tireMat);
+      m.position.set(x, y, z);
+      m.castShadow = m.receiveShadow = true;
+      group.add(m);
+    });
+  } else {
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.038, 0.78), rampMat);
+    deck.position.set(0, 0.145, 0);
+    deck.rotation.x = -0.34;
+    deck.castShadow = deck.receiveShadow = true;
+    group.add(deck);
+    [-0.24, 0.24].forEach((sx) => {
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.25, 0.045), woodMat);
+      strut.position.set(sx, 0.13, 0.34);
+      strut.castShadow = true;
+      group.add(strut);
+      const flag = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.012), redYarn);
+      flag.position.set(sx * 1.1, 0.36, 0.34);
+      group.add(flag);
+    });
+  }
+
+  return { group };
+}
+`;
+}
+

@@ -123,3 +123,62 @@ export const DEFAULT_CREATURE_CONFIG: YarnCreatureConfig = {
   heldItem: 'none',
   heldHand: 'right',
 };
+
+export type StageElementId =
+  | 'scene'
+  | 'creature'
+  | 'motorcycle'
+  | 'tree'
+  | 'obstacle';
+
+export const STAGE_ELEMENTS: { id: StageElementId; label: string }[] = [
+  { id: 'scene', label: 'Вся сцена' },
+  { id: 'creature', label: 'Герой' },
+  { id: 'motorcycle', label: 'Мотоцикл' },
+  { id: 'tree', label: 'Дерево' },
+  { id: 'obstacle', label: 'Перешкода' },
+];
+
+export type TrackSurfaceId = 'moto_track' | 'gravel' | 'oak';
+
+export const TRACK_SURFACES: { id: TrackSurfaceId; label: string }[] = [
+  { id: 'moto_track', label: 'Мототрек' },
+  { id: 'gravel', label: 'Гравій' },
+  { id: 'oak', label: 'Дубовий стіл' },
+];
+
+export type TreeVariantId = 'spruce' | 'pine' | 'birch';
+
+export const TREE_VARIANTS: { id: TreeVariantId; label: string }[] = [
+  { id: 'spruce', label: 'Ялина' },
+  { id: 'pine', label: 'Сосна' },
+  { id: 'birch', label: 'Береза' },
+];
+
+export const FOLIAGE_PRESETS: {
+  id: string;
+  label: string;
+  color: string;
+  sheen: string;
+}[] = [
+  { id: 'deep', label: 'Хвоя', color: '#294f37', sheen: '#78b587' },
+  { id: 'emerald', label: 'Смарагд', color: '#2f5d47', sheen: '#8ac7a3' },
+  { id: 'birch', label: 'Весна', color: '#4c7844', sheen: '#b3df94' },
+  { id: 'autumn', label: 'Осінь', color: '#8a5629', sheen: '#e0a96d' },
+];
+
+export type ObstacleType =
+  | 'ramp'
+  | 'log_jump'
+  | 'tire_barrier'
+  | 'spool_table'
+  | 'slalom_gate';
+
+export const OBSTACLE_TYPES: { id: ObstacleType; label: string }[] = [
+  { id: 'ramp', label: 'Трамплін' },
+  { id: 'log_jump', label: 'Колоди' },
+  { id: 'tire_barrier', label: 'Шини' },
+  { id: 'spool_table', label: 'Котушка' },
+  { id: 'slalom_gate', label: 'Ворота' },
+];
+

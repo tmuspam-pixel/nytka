@@ -5,6 +5,12 @@ import dynamic from 'next/dynamic';
 import {
   CameraPresetId,
   DEFAULT_CREATURE_CONFIG,
+  FOLIAGE_PRESETS,
+  ObstacleType,
+  STAGE_ELEMENTS,
+  StageElementId,
+  TrackSurfaceId,
+  TreeVariantId,
   YarnCreatureConfig,
   YarnPose,
 } from '@/lib/three/types';
@@ -27,8 +33,28 @@ export default function HomePage() {
   const [pose, setPose] = useState<YarnPose>('idle');
   const [exploded, setExploded] = useState<number>(0);
   const [autoRotate, setAutoRotate] = useState<boolean>(true);
+  const [focusElement, setFocusElement] = useState<StageElementId>('scene');
+  const [trackSurface, setTrackSurface] =
+    useState<TrackSurfaceId>('moto_track');
   const [hasMotorcycle, setHasMotorcycle] = useState<boolean>(false);
   const [showTrees, setShowTrees] = useState<boolean>(true);
+  const [showObstacles, setShowObstacles] = useState<boolean>(true);
+  const [centerTreeVariant, setCenterTreeVariant] =
+    useState<TreeVariantId>('spruce');
+  const [centerTreeBark, setCenterTreeBark] = useState<'spruce' | 'birch'>(
+    'spruce'
+  );
+  const [centerTreeFoliage, setCenterTreeFoliage] = useState<{
+    color: string;
+    sheen: string;
+  }>({
+    color: FOLIAGE_PRESETS[0].color,
+    sheen: FOLIAGE_PRESETS[0].sheen,
+  });
+  const [centerTreeScale, setCenterTreeScale] = useState<number>(1.0);
+  const [centerObstacleType, setCenterObstacleType] =
+    useState<ObstacleType>('ramp');
+  const [centerObstacleScale, setCenterObstacleScale] = useState<number>(1.0);
   const [bikeSteer, setBikeSteer] = useState<number>(0);
   const [bikeSpeed, setBikeSpeed] = useState<number>(1.8);
   const [rideSeatY, setRideSeatY] = useState<number>(0);
@@ -91,7 +117,7 @@ export default function HomePage() {
     []
   );
 
-  // Keyboard shortcuts: R = reset camera, A/D = steer when riding, W/S = throttle
+  // Keyboard shortcuts: R = reset camera, A/D = steer when riding or inspecting bike, W/S = throttle
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
@@ -103,7 +129,7 @@ export default function HomePage() {
       const key = e.key.toLowerCase();
       if (key === 'r') {
         handleCameraPresetSelect('hero');
-      } else if (pose === 'ride') {
+      } else if (pose === 'ride' || focusElement === 'motorcycle') {
         if (key === 'a' || e.key === 'ArrowLeft') {
           setBikeSteer((s) => Math.max(-0.55, s - 0.12));
         } else if (key === 'd' || e.key === 'ArrowRight') {
@@ -117,7 +143,10 @@ export default function HomePage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleCameraPresetSelect, pose]);
+  }, [handleCameraPresetSelect, pose, focusElement]);
+
+  const activeElementLabel =
+    STAGE_ELEMENTS.find((el) => el.id === focusElement)?.label ?? 'Сцена';
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-[#12151b]">
@@ -127,8 +156,17 @@ export default function HomePage() {
           pose={pose}
           exploded={exploded}
           autoRotate={autoRotate}
+          focusElement={focusElement}
+          trackSurface={trackSurface}
           hasMotorcycle={hasMotorcycle}
           showTrees={showTrees}
+          showObstacles={showObstacles}
+          centerTreeVariant={centerTreeVariant}
+          centerTreeBark={centerTreeBark}
+          centerTreeFoliage={centerTreeFoliage}
+          centerTreeScale={centerTreeScale}
+          centerObstacleType={centerObstacleType}
+          centerObstacleScale={centerObstacleScale}
           bikeSteer={bikeSteer}
           bikeSpeed={bikeSpeed}
           rideSeatY={rideSeatY}
@@ -146,7 +184,7 @@ export default function HomePage() {
       {/* Minimal Top-Left Header */}
       <header className="fixed top-5 left-6 z-20 pointer-events-none select-none">
         <h1 className="text-lg font-semibold tracking-tight text-[#F2EFE9]">
-          Вʼязана 3D-фігурка
+          Вʼязана 3D-студія · {activeElementLabel}
         </h1>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-[#9DA4B0]">
           <span>Стиль Unravel 2</span>
@@ -170,10 +208,28 @@ export default function HomePage() {
         onExplodedChange={setExploded}
         autoRotate={autoRotate}
         onAutoRotateChange={setAutoRotate}
+        focusElement={focusElement}
+        onFocusElementChange={setFocusElement}
+        trackSurface={trackSurface}
+        onTrackSurfaceChange={setTrackSurface}
         hasMotorcycle={hasMotorcycle}
         onToggleMotorcycle={handleToggleMotorcycle}
         showTrees={showTrees}
         onToggleTrees={() => setShowTrees((prev) => !prev)}
+        showObstacles={showObstacles}
+        onToggleObstacles={() => setShowObstacles((prev) => !prev)}
+        centerTreeVariant={centerTreeVariant}
+        onCenterTreeVariantChange={setCenterTreeVariant}
+        centerTreeBark={centerTreeBark}
+        onCenterTreeBarkChange={setCenterTreeBark}
+        centerTreeFoliage={centerTreeFoliage}
+        onCenterTreeFoliageChange={setCenterTreeFoliage}
+        centerTreeScale={centerTreeScale}
+        onCenterTreeScaleChange={setCenterTreeScale}
+        centerObstacleType={centerObstacleType}
+        onCenterObstacleTypeChange={setCenterObstacleType}
+        centerObstacleScale={centerObstacleScale}
+        onCenterObstacleScaleChange={setCenterObstacleScale}
         bikeSteer={bikeSteer}
         onBikeSteerChange={setBikeSteer}
         bikeSpeed={bikeSpeed}
